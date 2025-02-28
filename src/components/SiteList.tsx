@@ -115,11 +115,19 @@ const SiteList = ({
   });
 
   const handleAddSubmit = (values: SiteFormValues) => {
-    onAddSite({
-      ...values,
+    // Convert the form values to a valid Site object
+    const newSite: Site = {
       id: "",
+      name: values.name,
+      location: values.location,
+      connections: values.connections.map(conn => ({
+        type: conn.type,
+        bandwidth: conn.bandwidth
+      })),
       coordinates: { x: 0, y: 0 },
-    });
+    };
+    
+    onAddSite(newSite);
     toast.success("Site added successfully");
     setIsAddDialogOpen(false);
     addForm.reset({
@@ -133,10 +141,18 @@ const SiteList = ({
 
   const handleEditSubmit = (values: SiteFormValues) => {
     if (siteToEdit) {
-      onUpdateSite({
+      // Convert the form values to a valid Site object
+      const updatedSite: Site = {
         ...siteToEdit,
-        ...values,
-      });
+        name: values.name,
+        location: values.location,
+        connections: values.connections.map(conn => ({
+          type: conn.type,
+          bandwidth: conn.bandwidth
+        })),
+      };
+      
+      onUpdateSite(updatedSite);
       toast.success("Site updated successfully");
       setIsEditDialogOpen(false);
       setSiteToEdit(null);
