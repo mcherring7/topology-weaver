@@ -4,11 +4,15 @@ export interface Coordinates {
   y: number;
 }
 
+export interface Connection {
+  type: string;
+  bandwidth: string;
+}
+
 export interface Site {
   id: string;
   name: string;
   location: string;
-  connectionType: string;
-  bandwidth: string;
+  connections: Connection[];
   coordinates: Coordinates;
 }

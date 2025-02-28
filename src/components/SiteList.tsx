@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Site } from "@/types/site";
+import { Site, Connection } from "@/types/site";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -38,9 +38,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
 import { AnimatePresence, motion } from "framer-motion";
+import { PlusCircle, X } from "lucide-react";
 
 interface SiteListProps {
   sites: Site[];
@@ -52,13 +53,19 @@ interface SiteListProps {
 }
 
 const connectionTypes = ["Fiber", "MPLS", "Direct Connect", "Broadband", "LTE"];
-const bandwidthOptions = ["10 Mbps", "100 Mbps", "500 Mbps", "1 Gbps", "10 Gbps"];
+const bandwidthOptions = ["10 Mbps", "50 Mbps", "100 Mbps", "500 Mbps", "1 Gbps", "10 Gbps"];
+
+const connectionSchema = z.object({
+  type: z.string().min(1, "Connection type is required"),
+  bandwidth: z.string().min(1, "Bandwidth is required"),
+});
 
 const siteFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   location: z.string().min(1, "Location is required"),
-  connectionType: z.string().min(1, "Connection type is required"),
-  bandwidth: z.string().min(1, "Bandwidth is required"),
+  connections: z.array(connectionSchema)
+    .min(1, "At least one connection is required")
+    .max(3, "Maximum 3 connections allowed"),
 });
 
 type SiteFormValues = z.infer<typeof siteFormSchema>;
@@ -80,9 +87,15 @@ const SiteList = ({
     defaultValues: {
       name: "",
       location: "",
-      connectionType: "Fiber",
-      bandwidth: "100 Mbps",
+      connections: [
+        { type: "Fiber", bandwidth: "100 Mbps" }
+      ],
     },
+  });
+
+  const addConnectionsField = useFieldArray({
+    control: addForm.control,
+    name: "connections",
   });
 
   const editForm = useForm<SiteFormValues>({
@@ -90,9 +103,15 @@ const SiteList = ({
     defaultValues: {
       name: "",
       location: "",
-      connectionType: "Fiber",
-      bandwidth: "100 Mbps",
+      connections: [
+        { type: "Fiber", bandwidth: "100 Mbps" }
+      ],
     },
+  });
+
+  const editConnectionsField = useFieldArray({
+    control: editForm.control,
+    name: "connections",
   });
 
   const handleAddSubmit = (values: SiteFormValues) => {
@@ -103,7 +122,13 @@ const SiteList = ({
     });
     toast.success("Site added successfully");
     setIsAddDialogOpen(false);
-    addForm.reset();
+    addForm.reset({
+      name: "",
+      location: "",
+      connections: [
+        { type: "Fiber", bandwidth: "100 Mbps" }
+      ],
+    });
   };
 
   const handleEditSubmit = (values: SiteFormValues) => {
@@ -123,8 +148,7 @@ const SiteList = ({
     editForm.reset({
       name: site.name,
       location: site.location,
-      connectionType: site.connectionType,
-      bandwidth: site.bandwidth,
+      connections: site.connections,
     });
     setIsEditDialogOpen(true);
   };
@@ -133,6 +157,22 @@ const SiteList = ({
     if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
       onRemoveSite(id);
       toast.success("Site removed successfully");
+    }
+  };
+
+  const addConnection = (fieldArray: any) => {
+    if (fieldArray.fields.length < 3) {
+      fieldArray.append({ type: "Fiber", bandwidth: "100 Mbps" });
+    } else {
+      toast.error("Maximum 3 connections allowed");
+    }
+  };
+
+  const removeConnection = (fieldArray: any, index: number) => {
+    if (fieldArray.fields.length > 1) {
+      fieldArray.remove(index);
+    } else {
+      toast.error("At least one connection is required");
     }
   };
 
@@ -181,60 +221,95 @@ const SiteList = ({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={addForm.control}
-                  name="connectionType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Connection Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
+                
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <FormLabel>Connections ({addConnectionsField.fields.length}/3)</FormLabel>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => addConnection(addConnectionsField)}
+                      disabled={addConnectionsField.fields.length >= 3}
+                    >
+                      <PlusCircle className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                  
+                  {addConnectionsField.fields.map((field, index) => (
+                    <div key={field.id} className="flex items-end gap-2 mb-3 p-2 border rounded-md">
+                      <FormField
+                        control={addForm.control}
+                        name={`connections.${index}.type`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel className="text-xs">Type</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select connection type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {connectionTypes.map((type) => (
+                                  <SelectItem key={type} value={type}>
+                                    {type}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={addForm.control}
+                        name={`connections.${index}.bandwidth`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel className="text-xs">Bandwidth</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select bandwidth" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {bandwidthOptions.map((bandwidth) => (
+                                  <SelectItem key={bandwidth} value={bandwidth}>
+                                    {bandwidth}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => removeConnection(addConnectionsField, index)}
+                        disabled={addConnectionsField.fields.length <= 1}
+                        className="h-8 w-8 p-0 mt-1"
                       >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select connection type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {connectionTypes.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {addForm.formState.errors.connections?.message && (
+                    <p className="text-sm font-medium text-destructive">{addForm.formState.errors.connections.message}</p>
                   )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="bandwidth"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bandwidth</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select bandwidth" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {bandwidthOptions.map((bandwidth) => (
-                            <SelectItem key={bandwidth} value={bandwidth}>
-                              {bandwidth}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                </div>
+
                 <DialogFooter>
                   <Button type="submit">Add Site</Button>
                 </DialogFooter>
@@ -263,23 +338,30 @@ const SiteList = ({
                 <CardHeader className="py-3 px-4">
                   <CardTitle className="text-sm font-medium flex items-center justify-between">
                     <span>{site.name}</span>
-                    <span 
-                      className="w-2 h-2 rounded-full" 
-                      style={{ 
-                        backgroundColor: 
-                          site.connectionType === "Fiber" ? "#10b981" :
-                          site.connectionType === "MPLS" ? "#3b82f6" :
-                          site.connectionType === "Direct Connect" ? "#8b5cf6" :
-                          site.connectionType === "Broadband" ? "#f59e0b" : "#6b7280"
-                      }}
-                    />
+                    {site.connections.length > 0 && (
+                      <span 
+                        className="w-2 h-2 rounded-full" 
+                        style={{ 
+                          backgroundColor: 
+                            site.connections[0].type === "Fiber" ? "#10b981" :
+                            site.connections[0].type === "MPLS" ? "#3b82f6" :
+                            site.connections[0].type === "Direct Connect" ? "#8b5cf6" :
+                            site.connections[0].type === "Broadband" ? "#f59e0b" : 
+                            site.connections[0].type === "LTE" ? "#ef4444" : "#6b7280"
+                        }}
+                      />
+                    )}
                   </CardTitle>
                   <CardDescription className="text-xs">{site.location}</CardDescription>
                 </CardHeader>
                 <CardContent className="py-0 px-4 text-xs text-gray-600">
-                  <div className="flex justify-between">
-                    <span>{site.connectionType}</span>
-                    <span>{site.bandwidth}</span>
+                  <div className="flex flex-col gap-1">
+                    {site.connections.map((conn, idx) => (
+                      <div key={idx} className="flex justify-between">
+                        <span>{conn.type}</span>
+                        <span>{conn.bandwidth}</span>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
                 <CardFooter className="py-2 px-4 flex justify-end gap-1">
@@ -348,60 +430,95 @@ const SiteList = ({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={editForm.control}
-                name="connectionType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Connection Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <FormLabel>Connections ({editConnectionsField.fields.length}/3)</FormLabel>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => addConnection(editConnectionsField)}
+                    disabled={editConnectionsField.fields.length >= 3}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+                
+                {editConnectionsField.fields.map((field, index) => (
+                  <div key={field.id} className="flex items-end gap-2 mb-3 p-2 border rounded-md">
+                    <FormField
+                      control={editForm.control}
+                      name={`connections.${index}.type`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel className="text-xs">Type</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select connection type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {connectionTypes.map((type) => (
+                                <SelectItem key={type} value={type}>
+                                  {type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name={`connections.${index}.bandwidth`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel className="text-xs">Bandwidth</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select bandwidth" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {bandwidthOptions.map((bandwidth) => (
+                                <SelectItem key={bandwidth} value={bandwidth}>
+                                  {bandwidth}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => removeConnection(editConnectionsField, index)}
+                      disabled={editConnectionsField.fields.length <= 1}
+                      className="h-8 w-8 p-0 mt-1"
                     >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {connectionTypes.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {editForm.formState.errors.connections?.message && (
+                  <p className="text-sm font-medium text-destructive">{editForm.formState.errors.connections.message}</p>
                 )}
-              />
-              <FormField
-                control={editForm.control}
-                name="bandwidth"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bandwidth</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {bandwidthOptions.map((bandwidth) => (
-                          <SelectItem key={bandwidth} value={bandwidth}>
-                            {bandwidth}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              </div>
+
               <DialogFooter>
                 <Button 
                   type="button" 

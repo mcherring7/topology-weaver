@@ -9,10 +9,44 @@ import { AnimatePresence, motion } from "framer-motion";
 
 const Index = () => {
   const [sites, setSites] = useState<Site[]>([
-    { id: "1", name: "Headquarters", location: "New York", connectionType: "Fiber", bandwidth: "1 Gbps", coordinates: { x: 0.5, y: 0.3 } },
-    { id: "2", name: "Regional Office", location: "San Francisco", connectionType: "MPLS", bandwidth: "500 Mbps", coordinates: { x: 0.2, y: 0.6 } },
-    { id: "3", name: "Data Center", location: "Chicago", connectionType: "Direct Connect", bandwidth: "10 Gbps", coordinates: { x: 0.8, y: 0.5 } },
-    { id: "4", name: "Branch Office", location: "Miami", connectionType: "Broadband", bandwidth: "100 Mbps", coordinates: { x: 0.6, y: 0.7 } },
+    { 
+      id: "1", 
+      name: "Headquarters", 
+      location: "New York", 
+      connections: [
+        { type: "Fiber", bandwidth: "1 Gbps" }
+      ],
+      coordinates: { x: 0.5, y: 0.3 } 
+    },
+    { 
+      id: "2", 
+      name: "Regional Office", 
+      location: "San Francisco", 
+      connections: [
+        { type: "MPLS", bandwidth: "500 Mbps" }
+      ],
+      coordinates: { x: 0.2, y: 0.6 } 
+    },
+    { 
+      id: "3", 
+      name: "Data Center", 
+      location: "Chicago", 
+      connections: [
+        { type: "Direct Connect", bandwidth: "10 Gbps" },
+        { type: "MPLS", bandwidth: "1 Gbps" }
+      ],
+      coordinates: { x: 0.8, y: 0.5 } 
+    },
+    { 
+      id: "4", 
+      name: "Branch Office", 
+      location: "Miami", 
+      connections: [
+        { type: "Broadband", bandwidth: "100 Mbps" },
+        { type: "LTE", bandwidth: "50 Mbps" }
+      ],
+      coordinates: { x: 0.6, y: 0.7 } 
+    },
   ]);
 
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
