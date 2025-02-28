@@ -26,6 +26,14 @@ const Index = () => {
     setSites(sites.map(site => site.id === updatedSite.id ? updatedSite : site));
   };
 
+  const updateSiteCoordinates = (siteId: string, coordinates: { x: number; y: number }) => {
+    setSites(sites.map(site => 
+      site.id === siteId 
+        ? { ...site, coordinates } 
+        : site
+    ));
+  };
+
   const removeSite = (id: string) => {
     setSites(sites.filter(site => site.id !== id));
     if (selectedSite?.id === id) {
@@ -104,7 +112,8 @@ const Index = () => {
               <NetworkTopology 
                 sites={sites} 
                 selectedSite={selectedSite} 
-                onSelectSite={setSelectedSite} 
+                onSelectSite={setSelectedSite}
+                onUpdateSiteCoordinates={updateSiteCoordinates}
               />
             </CardContent>
           </Card>
