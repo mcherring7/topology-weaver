@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import NetworkTopology from "@/components/NetworkTopology";
@@ -51,6 +51,17 @@ const Index = () => {
 
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showSiteList, setShowSiteList] = useState(true);
+
+  // Force a re-render of components when the layout changes
+  const [, forceUpdate] = useState({});
+  useEffect(() => {
+    // Small delay to allow animation to complete
+    const timer = setTimeout(() => {
+      forceUpdate({});
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [showSiteList]);
 
   const addSite = (site: Site) => {
     setSites([...sites, { ...site, id: String(sites.length + 1), coordinates: getRandomCoordinates() }]);

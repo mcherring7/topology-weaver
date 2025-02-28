@@ -19,6 +19,7 @@ const NetworkTopology = ({
   const canvasRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [hoveredSite, setHoveredSite] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -38,6 +39,20 @@ const NetworkTopology = ({
     };
   }, []);
 
+  // Recalculate dimensions when site list visibility changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (canvasRef.current) {
+        setDimensions({
+          width: canvasRef.current.offsetWidth,
+          height: canvasRef.current.offsetHeight,
+        });
+      }
+    }, 300); // Small delay to allow animation to complete
+    
+    return () => clearTimeout(timer);
+  }, [canvasRef.current?.offsetWidth, canvasRef.current?.offsetHeight]);
+
   const getConnectionColor = (connectionType: string) => {
     switch (connectionType) {
       case "Fiber":
@@ -55,7 +70,13 @@ const NetworkTopology = ({
     }
   };
 
+  const handleDragStart = () => {
+    setIsDragging(true);
+  };
+
   const handleDragEnd = (event: any, info: any, siteId: string) => {
+    setIsDragging(false);
+    
     if (canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
       const newX = info.point.x - canvasRect.left;
@@ -188,6 +209,7 @@ const NetworkTopology = ({
             }}
             drag
             dragMomentum={false}
+            onDragStart={() => handleDragStart()}
             onDragEnd={(event, info) => handleDragEnd(event, info, site.id)}
             whileDrag={{ scale: 1.1 }}
             transition={{ type: "spring", damping: 20 }}
@@ -196,7 +218,8 @@ const NetworkTopology = ({
               left: posX, 
               top: posY, 
               touchAction: "none",
-              transform: "translate(-50%, -50%)" 
+              transform: "translate(-50%, -50%)",
+              zIndex: isDragging ? 1000 : 1
             }}
             onClick={() => onSelectSite(isSelected ? null : site)}
             onMouseEnter={() => setHoveredSite(site.id)}
