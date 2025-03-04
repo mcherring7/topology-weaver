@@ -40,7 +40,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
 import { AnimatePresence, motion } from "framer-motion";
-import { PlusCircle, X } from "lucide-react";
+import { PlusCircle, X, Filter, Check } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface SiteListProps {
   sites: Site[];
@@ -84,6 +90,8 @@ const SiteList = ({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [siteToEdit, setSiteToEdit] = useState<Site | null>(null);
+  const [categoryFilters, setCategoryFilters] = useState<SiteCategory[]>(siteCategories);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const addForm = useForm<SiteFormValues>({
     resolver: zodResolver(siteFormSchema),
@@ -229,10 +237,80 @@ const SiteList = ({
     }
   };
 
+  const handleCategoryFilterChange = (category: SiteCategory) => {
+    setCategoryFilters((prev) => {
+      if (prev.includes(category)) {
+        return prev.filter(c => c !== category);
+      } else {
+        return [...prev, category];
+      }
+    });
+  };
+
+  const resetFilters = () => {
+    setCategoryFilters(siteCategories);
+  };
+
+  const filteredSites = sites.filter(site => categoryFilters.includes(site.category));
+
   return (
     <div className="p-4 flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-medium">Sites</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-medium">Sites</h2>
+          <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className={`h-8 w-8 p-0 ${categoryFilters.length < siteCategories.length ? 'bg-gray-100' : ''}`}
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-3" align="start">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium text-sm">Filter by Category</h4>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 px-2 text-xs" 
+                    onClick={resetFilters}
+                  >
+                    Reset
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {siteCategories.map((category) => (
+                    <div key={category} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`category-${category}`} 
+                        checked={categoryFilters.includes(category)}
+                        onCheckedChange={() => handleCategoryFilterChange(category)}
+                      />
+                      <label 
+                        htmlFor={`category-${category}`}
+                        className="flex-1 text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
+                      >
+                        <span 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: getCategoryColor(category) }}
+                        />
+                        {category}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+          {categoryFilters.length < siteCategories.length && (
+            <div className="text-xs text-gray-500">
+              Filtered: {categoryFilters.length}/{siteCategories.length}
+            </div>
+          )}
+        </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="text-xs">
@@ -402,7 +480,7 @@ const SiteList = ({
 
       <div className="overflow-y-auto flex-1 space-y-3">
         <AnimatePresence>
-          {sites.map((site) => (
+          {filteredSites.map((site) => (
             <motion.div
               key={site.id}
               initial={{ opacity: 0, y: 20 }}
@@ -473,6 +551,19 @@ const SiteList = ({
             </motion.div>
           ))}
         </AnimatePresence>
+        
+        {filteredSites.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <p>No sites match the current filters.</p>
+            <Button 
+              variant="link" 
+              className="mt-2" 
+              onClick={resetFilters}
+            >
+              Reset filters
+            </Button>
+          </div>
+        )}
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
