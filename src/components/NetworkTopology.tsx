@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from "react";
 import { Site } from "@/types/site";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,7 +21,6 @@ const NetworkTopology = ({
   const [isDragging, setIsDragging] = useState<string | null>(null);
   const [sitePositions, setSitePositions] = useState<Record<string, {x: number, y: number}>>({});
 
-  // Track actual rendered positions of sites
   useEffect(() => {
     const positions: Record<string, {x: number, y: number}> = {};
     sites.forEach(site => {
@@ -52,7 +50,6 @@ const NetworkTopology = ({
     };
   }, []);
 
-  // Recalculate dimensions when site list visibility changes
   useEffect(() => {
     const timer = setTimeout(() => {
       if (canvasRef.current) {
@@ -106,7 +103,6 @@ const NetworkTopology = ({
       const newX = info.point.x - canvasRect.left;
       const newY = info.point.y - canvasRect.top;
       
-      // Update the site position in real-time for visual feedback
       setSitePositions(prev => ({
         ...prev,
         [siteId]: { x: newX, y: newY }
@@ -122,7 +118,6 @@ const NetworkTopology = ({
       const newX = info.point.x - canvasRect.left;
       const newY = info.point.y - canvasRect.top;
       
-      // Convert to relative coordinates (0-1 range)
       const relativeX = Math.max(0, Math.min(1, newX / dimensions.width));
       const relativeY = Math.max(0, Math.min(1, newY / dimensions.height));
       
@@ -130,10 +125,8 @@ const NetworkTopology = ({
     }
   };
 
-  // Calculate the distance factors for spreading sites
   const getDistanceFactors = () => {
-    // Base scaling - smaller distance for more sites
-    const siteFactor = Math.max(0.3, 1 - (sites.length / 50)); // Reduce distance as sites increase
+    const siteFactor = Math.max(0.3, 1 - (sites.length / 50));
     return {
       internetDistance: dimensions.height * 0.25 * siteFactor,
       mplsDistance: dimensions.height * 0.25 * siteFactor
@@ -147,7 +140,6 @@ const NetworkTopology = ({
       ref={canvasRef}
       className="relative w-full h-full bg-gray-50 overflow-hidden"
     >
-      {/* Internet Cloud */}
       <div
         className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
         style={{
@@ -174,7 +166,6 @@ const NetworkTopology = ({
         </motion.div>
       </div>
 
-      {/* MPLS Cloud */}
       <div
         className="absolute bottom-1/3 left-1/2 transform -translate-x-1/2 translate-y-1/2"
         style={{
@@ -201,26 +192,21 @@ const NetworkTopology = ({
         </motion.div>
       </div>
 
-      {/* Connection Lines */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
         {sites.map((site) => {
-          // Get the site position from our tracked positions or calculate from coordinates
           const sitePos = sitePositions[site.id] || {
             x: site.coordinates.x * dimensions.width,
             y: site.coordinates.y * dimensions.height
           };
           
           return site.connections.map((connection, idx) => {
-            // Determine connection target (Internet or MPLS)
             const isMPLS = connection.type === "MPLS";
             const targetX = dimensions.width / 2;
             const targetY = isMPLS ? dimensions.height * (2/3) : dimensions.height / 3;
             
-            // Slight offset for multiple connections
             const offsetAngle = (idx - (site.connections.length - 1) / 2) * 0.15;
             const controlPointOffset = 30 + (idx * 10);
             
-            // Calculate control point with offset
             const midX = (sitePos.x + targetX) / 2;
             const midY = (sitePos.y + targetY) / 2;
             const dx = targetX - sitePos.x;
@@ -247,25 +233,17 @@ const NetworkTopology = ({
         })}
       </svg>
 
-      {/* Sites */}
       {sites.map((site) => {
-        // Use real-time position from state during dragging, otherwise calculate from coordinates
-        const position = isDragging === site.id 
-          ? sitePositions[site.id] || { 
-              x: site.coordinates.x * dimensions.width, 
-              y: site.coordinates.y * dimensions.height 
-            }
-          : { 
-              x: site.coordinates.x * dimensions.width, 
-              y: site.coordinates.y * dimensions.height 
-            };
+        const position = sitePositions[site.id] || { 
+          x: site.coordinates.x * dimensions.width, 
+          y: site.coordinates.y * dimensions.height 
+        };
             
         const isSelected = selectedSite?.id === site.id;
         const isHovered = hoveredSite === site.id;
         const isDraggingThis = isDragging === site.id;
 
-        // Calculate scaled size based on number of sites
-        const scaleFactor = Math.max(0.6, 1 - (sites.length / 60)); // Reduce size as sites increase
+        const scaleFactor = Math.max(0.6, 1 - (sites.length / 60));
         const siteSize = {
           width: 50 * scaleFactor,
           height: 50 * scaleFactor
@@ -316,11 +294,12 @@ const NetworkTopology = ({
               )}
             </div>
             
-            {/* Site Label - Position it directly below the site icon and ensure it's visible during drag */}
             <div 
-              className={`absolute top-full left-1/2 transform -translate-x-1/2 mt-1 whitespace-nowrap z-20 ${
-                isDraggingThis ? 'opacity-100' : ''
-              }`}
+              className={`absolute top-full left-1/2 transform -translate-x-1/2 mt-1 whitespace-nowrap z-20`}
+              style={{
+                opacity: 1,
+                pointerEvents: 'none'
+              }}
             >
               <div className="bg-white px-2 py-1 rounded text-xs shadow-sm">
                 {site.name}
