@@ -19,7 +19,7 @@ const NetworkTopology = ({
   const canvasRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [hoveredSite, setHoveredSite] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDragging, setIsDragging] = useState<string | null>(null);
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -55,7 +55,7 @@ const NetworkTopology = ({
 
   const getConnectionColor = (connectionType: string) => {
     switch (connectionType) {
-      case "Fiber":
+      case "DIA":
         return "#10b981"; // Green
       case "MPLS":
         return "#3b82f6"; // Blue
@@ -70,12 +70,25 @@ const NetworkTopology = ({
     }
   };
 
-  const handleDragStart = () => {
-    setIsDragging(true);
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case "Corporate":
+        return "#8B5CF6"; // Purple
+      case "Data Center":
+        return "#10B981"; // Green
+      case "Branch":
+        return "#3B82F6"; // Blue
+      default:
+        return "#6B7280"; // Gray
+    }
+  };
+
+  const handleDragStart = (siteId: string) => {
+    setIsDragging(siteId);
   };
 
   const handleDragEnd = (event: any, info: any, siteId: string) => {
-    setIsDragging(false);
+    setIsDragging(null);
     
     if (canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
@@ -152,24 +165,25 @@ const NetworkTopology = ({
       {/* Connection Lines */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
         {sites.map((site) => {
-          const startX = site.coordinates.x * dimensions.width;
-          const startY = site.coordinates.y * dimensions.height;
+          // Get the site position
+          const siteX = site.coordinates.x * dimensions.width;
+          const siteY = site.coordinates.y * dimensions.height;
           
           return site.connections.map((connection, idx) => {
             // Determine connection target (Internet or MPLS)
             const isMPLS = connection.type === "MPLS";
-            const endX = dimensions.width / 2;
-            const endY = isMPLS ? dimensions.height * (2/3) : dimensions.height / 3;
+            const targetX = dimensions.width / 2;
+            const targetY = isMPLS ? dimensions.height * (2/3) : dimensions.height / 3;
             
             // Slight offset for multiple connections
             const offsetAngle = (idx - (site.connections.length - 1) / 2) * 0.15;
             const controlPointOffset = 30 + (idx * 10);
             
             // Calculate control point with offset
-            const midX = (startX + endX) / 2;
-            const midY = (startY + endY) / 2;
-            const dx = endX - startX;
-            const dy = endY - startY;
+            const midX = (siteX + targetX) / 2;
+            const midY = (siteY + targetY) / 2;
+            const dx = targetX - siteX;
+            const dy = targetY - siteY;
             const normalAngle = Math.atan2(dy, dx) + Math.PI/2;
             const controlX = midX + Math.cos(normalAngle + offsetAngle) * controlPointOffset;
             const controlY = midY + Math.sin(normalAngle + offsetAngle) * controlPointOffset;
@@ -180,7 +194,7 @@ const NetworkTopology = ({
                 initial={{ pathLength: 0 }}
                 animate={{ pathLength: 1 }}
                 transition={{ duration: 1, delay: 0.2 }}
-                d={`M ${startX} ${startY} Q ${controlX} ${controlY}, ${endX} ${endY}`}
+                d={`M ${siteX} ${siteY} Q ${controlX} ${controlY}, ${targetX} ${targetY}`}
                 fill="none"
                 stroke={getConnectionColor(connection.type)}
                 strokeWidth={selectedSite?.id === site.id || hoveredSite === site.id ? 3 : 2}
@@ -198,6 +212,7 @@ const NetworkTopology = ({
         const posY = site.coordinates.y * dimensions.height;
         const isSelected = selectedSite?.id === site.id;
         const isHovered = hoveredSite === site.id;
+        const isDraggingThis = isDragging === site.id;
 
         return (
           <motion.div
@@ -206,20 +221,20 @@ const NetworkTopology = ({
             animate={{ 
               scale: isSelected || isHovered ? 1.1 : 1, 
               opacity: selectedSite && !isSelected ? 0.7 : 1,
+              zIndex: isDraggingThis ? 50 : 1
             }}
             drag
             dragMomentum={false}
-            onDragStart={() => handleDragStart()}
+            onDragStart={() => handleDragStart(site.id)}
             onDragEnd={(event, info) => handleDragEnd(event, info, site.id)}
             whileDrag={{ scale: 1.1 }}
             transition={{ type: "spring", damping: 20 }}
-            className="absolute cursor-pointer"
+            className={`absolute cursor-pointer ${isDraggingThis ? 'z-50' : 'z-10'}`}
             style={{ 
               left: posX, 
               top: posY, 
               touchAction: "none",
-              transform: "translate(-50%, -50%)",
-              zIndex: isDragging ? 1000 : 1
+              transform: "translate(-50%, -50%)"
             }}
             onClick={() => onSelectSite(isSelected ? null : site)}
             onMouseEnter={() => setHoveredSite(site.id)}
@@ -229,7 +244,11 @@ const NetworkTopology = ({
               className={`rounded-full p-3 shadow-md transition-colors border ${
                 isSelected ? "border-gray-400" : "border-gray-200"
               }`}
-              style={{ backgroundColor: "white" }}
+              style={{ 
+                backgroundColor: "white",
+                borderColor: getCategoryColor(site.category),
+                borderWidth: "2px"
+              }}
             >
               {site.connections.length > 0 && (
                 <div
@@ -250,7 +269,13 @@ const NetworkTopology = ({
                     exit={{ opacity: 0, y: -5 }}
                     className="bg-white mt-1 px-2 py-1 rounded text-xs shadow-sm"
                   >
-                    <div>{site.location}</div>
+                    <div className="flex items-center gap-1">
+                      <span 
+                        className="w-2 h-2 rounded-full" 
+                        style={{ backgroundColor: getCategoryColor(site.category) }}
+                      />
+                      <span>{site.category} - {site.location}</span>
+                    </div>
                     {site.connections.map((connection, idx) => (
                       <div key={idx} className="flex items-center gap-1">
                         <span 

@@ -9,10 +9,13 @@ export interface Connection {
   bandwidth: string;
 }
 
+export type SiteCategory = "Corporate" | "Data Center" | "Branch";
+
 export interface Site {
   id: string;
   name: string;
   location: string;
+  category: SiteCategory;
   connections: Connection[];
   coordinates: Coordinates;
 }

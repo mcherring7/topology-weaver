@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Site, Connection } from "@/types/site";
+import { Site, Connection, SiteCategory } from "@/types/site";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -52,8 +51,9 @@ interface SiteListProps {
   onSelectSite: (site: Site | null) => void;
 }
 
-const connectionTypes = ["Fiber", "MPLS", "Direct Connect", "Broadband", "LTE"];
+const connectionTypes = ["DIA", "MPLS", "Direct Connect", "Broadband", "LTE"];
 const bandwidthOptions = ["10 Mbps", "50 Mbps", "100 Mbps", "500 Mbps", "1 Gbps", "10 Gbps"];
+const siteCategories: SiteCategory[] = ["Corporate", "Data Center", "Branch"];
 
 const connectionSchema = z.object({
   type: z.string().min(1, "Connection type is required"),
@@ -63,6 +63,9 @@ const connectionSchema = z.object({
 const siteFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   location: z.string().min(1, "Location is required"),
+  category: z.enum(["Corporate", "Data Center", "Branch"] as const, {
+    required_error: "Category is required",
+  }),
   connections: z.array(connectionSchema)
     .min(1, "At least one connection is required")
     .max(3, "Maximum 3 connections allowed"),
@@ -87,8 +90,9 @@ const SiteList = ({
     defaultValues: {
       name: "",
       location: "",
+      category: "Corporate",
       connections: [
-        { type: "Fiber", bandwidth: "100 Mbps" }
+        { type: "DIA", bandwidth: "100 Mbps" }
       ],
     },
   });
@@ -103,8 +107,9 @@ const SiteList = ({
     defaultValues: {
       name: "",
       location: "",
+      category: "Corporate",
       connections: [
-        { type: "Fiber", bandwidth: "100 Mbps" }
+        { type: "DIA", bandwidth: "100 Mbps" }
       ],
     },
   });
@@ -115,11 +120,11 @@ const SiteList = ({
   });
 
   const handleAddSubmit = (values: SiteFormValues) => {
-    // Convert the form values to a valid Site object
     const newSite: Site = {
       id: "",
       name: values.name,
       location: values.location,
+      category: values.category,
       connections: values.connections.map(conn => ({
         type: conn.type,
         bandwidth: conn.bandwidth
@@ -133,19 +138,20 @@ const SiteList = ({
     addForm.reset({
       name: "",
       location: "",
+      category: "Corporate",
       connections: [
-        { type: "Fiber", bandwidth: "100 Mbps" }
+        { type: "DIA", bandwidth: "100 Mbps" }
       ],
     });
   };
 
   const handleEditSubmit = (values: SiteFormValues) => {
     if (siteToEdit) {
-      // Convert the form values to a valid Site object
       const updatedSite: Site = {
         ...siteToEdit,
         name: values.name,
         location: values.location,
+        category: values.category,
         connections: values.connections.map(conn => ({
           type: conn.type,
           bandwidth: conn.bandwidth
@@ -164,6 +170,7 @@ const SiteList = ({
     editForm.reset({
       name: site.name,
       location: site.location,
+      category: site.category,
       connections: site.connections,
     });
     setIsEditDialogOpen(true);
@@ -178,7 +185,7 @@ const SiteList = ({
 
   const addConnection = (fieldArray: any) => {
     if (fieldArray.fields.length < 3) {
-      fieldArray.append({ type: "Fiber", bandwidth: "100 Mbps" });
+      fieldArray.append({ type: "DIA", bandwidth: "100 Mbps" });
     } else {
       toast.error("Maximum 3 connections allowed");
     }
@@ -189,6 +196,36 @@ const SiteList = ({
       fieldArray.remove(index);
     } else {
       toast.error("At least one connection is required");
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case "Corporate":
+        return "#8B5CF6"; // Purple
+      case "Data Center":
+        return "#10B981"; // Green
+      case "Branch":
+        return "#3B82F6"; // Blue
+      default:
+        return "#6B7280"; // Gray
+    }
+  };
+
+  const getConnectionColor = (connectionType: string) => {
+    switch (connectionType) {
+      case "DIA":
+        return "#10b981"; // Green
+      case "MPLS":
+        return "#3b82f6"; // Blue
+      case "Direct Connect":
+        return "#8b5cf6"; // Purple
+      case "Broadband":
+        return "#f59e0b"; // Yellow
+      case "LTE":
+        return "#ef4444"; // Red
+      default:
+        return "#6b7280"; // Gray
     }
   };
 
@@ -233,6 +270,34 @@ const SiteList = ({
                       <FormControl>
                         <Input placeholder="New York" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={addForm.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select site category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {siteCategories.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -354,27 +419,27 @@ const SiteList = ({
                 <CardHeader className="py-3 px-4">
                   <CardTitle className="text-sm font-medium flex items-center justify-between">
                     <span>{site.name}</span>
-                    {site.connections.length > 0 && (
-                      <span 
-                        className="w-2 h-2 rounded-full" 
-                        style={{ 
-                          backgroundColor: 
-                            site.connections[0].type === "Fiber" ? "#10b981" :
-                            site.connections[0].type === "MPLS" ? "#3b82f6" :
-                            site.connections[0].type === "Direct Connect" ? "#8b5cf6" :
-                            site.connections[0].type === "Broadband" ? "#f59e0b" : 
-                            site.connections[0].type === "LTE" ? "#ef4444" : "#6b7280"
-                        }}
-                      />
-                    )}
+                    <span 
+                      className="w-2 h-2 rounded-full" 
+                      style={{ backgroundColor: getCategoryColor(site.category) }}
+                    />
                   </CardTitle>
-                  <CardDescription className="text-xs">{site.location}</CardDescription>
+                  <CardDescription className="text-xs">
+                    <span className="inline-block mr-1">{site.category}</span>
+                    <span>- {site.location}</span>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="py-0 px-4 text-xs text-gray-600">
                   <div className="flex flex-col gap-1">
                     {site.connections.map((conn, idx) => (
                       <div key={idx} className="flex justify-between">
-                        <span>{conn.type}</span>
+                        <span className="flex items-center">
+                          <span 
+                            className="w-2 h-2 rounded-full mr-1" 
+                            style={{ backgroundColor: getConnectionColor(conn.type) }}
+                          />
+                          {conn.type}
+                        </span>
                         <span>{conn.bandwidth}</span>
                       </div>
                     ))}
@@ -442,6 +507,34 @@ const SiteList = ({
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editForm.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select site category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {siteCategories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

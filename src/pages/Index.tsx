@@ -13,8 +13,9 @@ const Index = () => {
       id: "1", 
       name: "Headquarters", 
       location: "New York", 
+      category: "Corporate",
       connections: [
-        { type: "Fiber", bandwidth: "1 Gbps" }
+        { type: "DIA", bandwidth: "1 Gbps" }
       ],
       coordinates: { x: 0.5, y: 0.3 } 
     },
@@ -22,6 +23,7 @@ const Index = () => {
       id: "2", 
       name: "Regional Office", 
       location: "San Francisco", 
+      category: "Corporate",
       connections: [
         { type: "MPLS", bandwidth: "500 Mbps" }
       ],
@@ -31,6 +33,7 @@ const Index = () => {
       id: "3", 
       name: "Data Center", 
       location: "Chicago", 
+      category: "Data Center",
       connections: [
         { type: "Direct Connect", bandwidth: "10 Gbps" },
         { type: "MPLS", bandwidth: "1 Gbps" }
@@ -41,6 +44,7 @@ const Index = () => {
       id: "4", 
       name: "Branch Office", 
       location: "Miami", 
+      category: "Branch",
       connections: [
         { type: "Broadband", bandwidth: "100 Mbps" },
         { type: "LTE", bandwidth: "50 Mbps" }
