@@ -130,6 +130,18 @@ const NetworkTopology = ({
     }
   };
 
+  // Calculate the distance factors for spreading sites
+  const getDistanceFactors = () => {
+    // Base scaling - smaller distance for more sites
+    const siteFactor = Math.max(0.3, 1 - (sites.length / 50)); // Reduce distance as sites increase
+    return {
+      internetDistance: dimensions.height * 0.25 * siteFactor,
+      mplsDistance: dimensions.height * 0.25 * siteFactor
+    };
+  };
+
+  const { internetDistance, mplsDistance } = getDistanceFactors();
+
   return (
     <div
       ref={canvasRef}
@@ -252,6 +264,13 @@ const NetworkTopology = ({
         const isHovered = hoveredSite === site.id;
         const isDraggingThis = isDragging === site.id;
 
+        // Calculate scaled size based on number of sites
+        const scaleFactor = Math.max(0.6, 1 - (sites.length / 60)); // Reduce size as sites increase
+        const siteSize = {
+          width: 50 * scaleFactor,
+          height: 50 * scaleFactor
+        };
+
         return (
           <motion.div
             key={site.id}
@@ -296,7 +315,13 @@ const NetworkTopology = ({
                 />
               )}
             </div>
-            <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 whitespace-nowrap">
+            
+            {/* Site Label - Position it directly below the site icon and ensure it's visible during drag */}
+            <div 
+              className={`absolute top-full left-1/2 transform -translate-x-1/2 mt-1 whitespace-nowrap z-20 ${
+                isDraggingThis ? 'opacity-100' : ''
+              }`}
+            >
               <div className="bg-white px-2 py-1 rounded text-xs shadow-sm">
                 {site.name}
               </div>
