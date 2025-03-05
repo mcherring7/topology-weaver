@@ -1,52 +1,17 @@
+
 import { useState } from "react";
-import { Site, Connection, SiteCategory } from "@/types/site";
+import { Site, SiteCategory } from "@/types/site";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
-import * as z from "zod";
-import { AnimatePresence, motion } from "framer-motion";
-import { PlusCircle, X, Filter, Check } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import CategoryFilter from "./sites/CategoryFilter";
+import SiteCard from "./sites/SiteCard";
+import AddSiteDialog from "./sites/AddSiteDialog";
+import EditSiteDialog from "./sites/EditSiteDialog";
+import { getCategoryColor, getConnectionColor, getProviderColor } from "@/utils/siteColors";
+
+// Constants - Defined here for consistency and avoid duplication
+const siteCategories: SiteCategory[] = ["Corporate", "Data Center", "Branch"];
 
 interface SiteListProps {
   sites: Site[];
@@ -58,30 +23,6 @@ interface SiteListProps {
   categoryFilters: SiteCategory[];
   onCategoryFiltersChange: (categories: SiteCategory[]) => void;
 }
-
-const connectionTypes = ["DIA", "MPLS", "Direct Connect", "Broadband", "LTE"];
-const bandwidthOptions = ["10 Mbps", "50 Mbps", "100 Mbps", "500 Mbps", "1 Gbps", "10 Gbps"];
-const providerOptions = ["AT&T", "Verizon", "Lumen", "Comcast", "Spectrum", "Zayo"];
-const siteCategories: SiteCategory[] = ["Corporate", "Data Center", "Branch"];
-
-const connectionSchema = z.object({
-  type: z.string().min(1, "Connection type is required"),
-  bandwidth: z.string().min(1, "Bandwidth is required"),
-  provider: z.string().optional(),
-});
-
-const siteFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  location: z.string().min(1, "Location is required"),
-  category: z.enum(["Corporate", "Data Center", "Branch"] as const, {
-    required_error: "Category is required",
-  }),
-  connections: z.array(connectionSchema)
-    .min(1, "At least one connection is required")
-    .max(3, "Maximum 3 connections allowed"),
-});
-
-type SiteFormValues = z.infer<typeof siteFormSchema>;
 
 const SiteList = ({
   sites,
@@ -98,106 +39,8 @@ const SiteList = ({
   const [siteToEdit, setSiteToEdit] = useState<Site | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const addForm = useForm<SiteFormValues>({
-    resolver: zodResolver(siteFormSchema),
-    defaultValues: {
-      name: "",
-      location: "",
-      category: "Corporate",
-      connections: [
-        { type: "DIA", bandwidth: "100 Mbps", provider: "AT&T" }
-      ],
-    },
-  });
-
-  const addConnectionsField = useFieldArray({
-    control: addForm.control,
-    name: "connections",
-  });
-
-  const editForm = useForm<SiteFormValues>({
-    resolver: zodResolver(siteFormSchema),
-    defaultValues: {
-      name: "",
-      location: "",
-      category: "Corporate",
-      connections: [
-        { type: "DIA", bandwidth: "100 Mbps", provider: "AT&T" }
-      ],
-    },
-  });
-
-  const editConnectionsField = useFieldArray({
-    control: editForm.control,
-    name: "connections",
-  });
-
-  const handleAddSubmit = (values: SiteFormValues) => {
-    const newSite: Site = {
-      id: "",
-      name: values.name,
-      location: values.location,
-      category: values.category,
-      connections: values.connections.map(conn => ({
-        type: conn.type,
-        bandwidth: conn.bandwidth,
-        provider: conn.provider
-      })),
-      coordinates: { x: 0, y: 0 },
-    };
-    
-    onAddSite(newSite);
-    toast.success("Site added successfully");
-    setIsAddDialogOpen(false);
-    addForm.reset({
-      name: "",
-      location: "",
-      category: "Corporate",
-      connections: [
-        { type: "DIA", bandwidth: "100 Mbps", provider: "AT&T" }
-      ],
-    });
-  };
-
-  const handleEditSubmit = (values: SiteFormValues, e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-    
-    if (siteToEdit) {
-      const updatedSite: Site = {
-        ...siteToEdit,
-        name: values.name,
-        location: values.location,
-        category: values.category,
-        connections: values.connections.map(conn => ({
-          type: conn.type,
-          bandwidth: conn.bandwidth,
-          provider: conn.provider
-        })),
-      };
-      
-      onUpdateSite(updatedSite);
-      toast.success("Site updated successfully");
-      setIsEditDialogOpen(false);
-      setSiteToEdit(null);
-    }
-  };
-
   const openEditDialog = (site: Site) => {
     setSiteToEdit(site);
-    
-    const connections = site.connections.map(conn => ({
-      ...conn,
-      provider: conn.provider || undefined
-    }));
-    
-    editForm.reset({
-      name: site.name,
-      location: site.location,
-      category: site.category,
-      connections,
-    });
     setIsEditDialogOpen(true);
   };
 
@@ -208,85 +51,15 @@ const SiteList = ({
     }
   };
 
-  const addConnection = (fieldArray: any) => {
-    if (fieldArray.fields.length < 3) {
-      fieldArray.append({ type: "DIA", bandwidth: "100 Mbps", provider: "AT&T" });
-    } else {
-      toast.error("Maximum 3 connections allowed");
-    }
-  };
-
-  const removeConnection = (fieldArray: any, index: number) => {
-    if (fieldArray.fields.length > 1) {
-      fieldArray.remove(index);
-    } else {
-      toast.error("At least one connection is required");
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "Corporate":
-        return "#8B5CF6"; // Purple
-      case "Data Center":
-        return "#10B981"; // Green
-      case "Branch":
-        return "#3B82F6"; // Blue
-      default:
-        return "#6B7280"; // Gray
-    }
-  };
-
-  const getConnectionColor = (connectionType: string) => {
-    switch (connectionType) {
-      case "DIA":
-        return "#10b981"; // Green
-      case "MPLS":
-        return "#3b82f6"; // Blue
-      case "Direct Connect":
-        return "#8b5cf6"; // Purple
-      case "Broadband":
-        return "#f59e0b"; // Yellow
-      case "LTE":
-        return "#ef4444"; // Red
-      default:
-        return "#6b7280"; // Gray
-    }
-  };
-
-  const getProviderColor = (provider?: string) => {
-    if (!provider) return "#6b7280"; // Gray default
-    
-    switch (provider) {
-      case "AT&T":
-        return "#0057b8"; // AT&T Blue
-      case "Verizon":
-        return "#cd040b"; // Verizon Red
-      case "Lumen":
-        return "#00c0f3"; // Lumen Blue
-      case "Comcast":
-        return "#ff0000"; // Comcast Red
-      case "Spectrum":
-        return "#0072ce"; // Spectrum Blue
-      case "Zayo":
-        return "#ffda00"; // Zayo Yellow
-      default:
-        return "#6b7280"; // Gray
-    }
-  };
-
-  const handleCategoryFilterChange = (category: SiteCategory) => {
-    onCategoryFiltersChange(
-      categoryFilters.includes(category)
-        ? categoryFilters.filter(c => c !== category)
-        : [...categoryFilters, category]
-    );
+  const handleSelectSite = (site: Site) => {
+    onSelectSite(selectedSite?.id === site.id ? null : site);
   };
 
   const resetFilters = () => {
     onCategoryFiltersChange(siteCategories);
   };
 
+  // Filter sites based on selected categories
   const filteredSites = sites.filter(site => categoryFilters.includes(site.category));
 
   return (
@@ -294,337 +67,37 @@ const SiteList = ({
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-medium">Sites</h2>
-          <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-            <PopoverTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className={`h-8 w-8 p-0 ${categoryFilters.length < siteCategories.length ? 'bg-gray-100' : ''}`}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-3" align="start">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium text-sm">Filter by Category</h4>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-6 px-2 text-xs" 
-                    onClick={resetFilters}
-                  >
-                    Reset
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {siteCategories.map((category) => (
-                    <div key={category} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`category-${category}`} 
-                        checked={categoryFilters.includes(category)}
-                        onCheckedChange={() => handleCategoryFilterChange(category)}
-                      />
-                      <label 
-                        htmlFor={`category-${category}`}
-                        className="flex-1 text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
-                      >
-                        <span 
-                          className="w-2 h-2 rounded-full" 
-                          style={{ backgroundColor: getCategoryColor(category) }}
-                        />
-                        {category}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-          {categoryFilters.length < siteCategories.length && (
-            <div className="text-xs text-gray-500">
-              Filtered: {categoryFilters.length}/{siteCategories.length}
-            </div>
-          )}
+          <CategoryFilter 
+            categoryFilters={categoryFilters}
+            onCategoryFiltersChange={onCategoryFiltersChange}
+            isFilterOpen={isFilterOpen}
+            setIsFilterOpen={setIsFilterOpen}
+            getCategoryColor={getCategoryColor}
+            siteCategories={siteCategories}
+          />
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="text-xs">
-              Add Site
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Site</DialogTitle>
-              <DialogDescription>
-                Enter the details for the new site.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...addForm}>
-              <form onSubmit={addForm.handleSubmit(handleAddSubmit)} className="space-y-4">
-                <FormField
-                  control={addForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Headquarters" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="New York" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={addForm.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select site category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {siteCategories.map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <FormLabel>Connections ({addConnectionsField.fields.length}/3)</FormLabel>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => addConnection(addConnectionsField)}
-                      disabled={addConnectionsField.fields.length >= 3}
-                    >
-                      <PlusCircle className="h-4 w-4 mr-1" />
-                      Add
-                    </Button>
-                  </div>
-                  
-                  {addConnectionsField.fields.map((field, index) => (
-                    <div key={field.id} className="flex flex-col gap-2 mb-3 p-2 border rounded-md">
-                      <div className="flex items-end gap-2">
-                        <FormField
-                          control={addForm.control}
-                          name={`connections.${index}.type`}
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <FormLabel className="text-xs">Type</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select connection type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {connectionTypes.map((type) => (
-                                    <SelectItem key={type} value={type}>
-                                      {type}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={addForm.control}
-                          name={`connections.${index}.bandwidth`}
-                          render={({ field }) => (
-                            <FormItem className="flex-1">
-                              <FormLabel className="text-xs">Bandwidth</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select bandwidth" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {bandwidthOptions.map((bandwidth) => (
-                                    <SelectItem key={bandwidth} value={bandwidth}>
-                                      {bandwidth}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => removeConnection(addConnectionsField, index)}
-                          disabled={addConnectionsField.fields.length <= 1}
-                          className="h-8 w-8 p-0 mt-1"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <FormField
-                        control={addForm.control}
-                        name={`connections.${index}.provider`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormLabel className="text-xs">Provider</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select provider (optional)" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                {providerOptions.map((provider) => (
-                                  <SelectItem key={provider} value={provider}>
-                                    {provider}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  ))}
-                  {addForm.formState.errors.connections?.message && (
-                    <p className="text-sm font-medium text-destructive">{addForm.formState.errors.connections.message}</p>
-                  )}
-                </div>
-
-                <DialogFooter>
-                  <Button type="submit">Add Site</Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <AddSiteDialog 
+          onAddSite={onAddSite}
+          siteCategories={siteCategories}
+          isOpen={isAddDialogOpen}
+          onOpenChange={setIsAddDialogOpen}
+        />
       </div>
 
       <div className="overflow-y-auto flex-1 space-y-3">
         <AnimatePresence>
           {filteredSites.map((site) => (
-            <motion.div
+            <SiteCard 
               key={site.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: -100 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Card 
-                className={`cursor-pointer transition-all ${
-                  selectedSite?.id === site.id ? "border-gray-400 shadow-md" : "border-gray-200"
-                }`}
-                onClick={() => onSelectSite(selectedSite?.id === site.id ? null : site)}
-              >
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-sm font-medium flex items-center justify-between">
-                    <span>{site.name}</span>
-                    <span 
-                      className="w-2 h-2 rounded-full" 
-                      style={{ backgroundColor: getCategoryColor(site.category) }}
-                    />
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    <span className="inline-block mr-1">{site.category}</span>
-                    <span>- {site.location}</span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="py-0 px-4 text-xs text-gray-600">
-                  <div className="flex flex-col gap-1">
-                    {site.connections.map((conn, idx) => (
-                      <div key={idx} className="flex justify-between">
-                        <span className="flex items-center">
-                          <span 
-                            className="w-2 h-2 rounded-full mr-1" 
-                            style={{ backgroundColor: conn.provider 
-                              ? getProviderColor(conn.provider) 
-                              : getConnectionColor(conn.type) 
-                            }}
-                          />
-                          {conn.type}
-                        </span>
-                        <div className="text-right">
-                          <span>{conn.bandwidth}</span>
-                          {conn.provider && (
-                            <span className="block text-gray-400 text-xs">
-                              {conn.provider}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-                <CardFooter className="py-2 px-4 flex justify-end gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEditDialog(site);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      confirmDelete(site.id, site.name);
-                    }}
-                  >
-                    Delete
-                  </Button>
-                </CardFooter>
-              </Card>
-            </motion.div>
+              site={site}
+              isSelected={selectedSite?.id === site.id}
+              onSelect={handleSelectSite}
+              onEdit={openEditDialog}
+              onDelete={confirmDelete}
+              getCategoryColor={getCategoryColor}
+              getConnectionColor={getConnectionColor}
+              getProviderColor={getProviderColor}
+            />
           ))}
         </AnimatePresence>
         
@@ -642,210 +115,13 @@ const SiteList = ({
         )}
       </div>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Site</DialogTitle>
-            <DialogDescription>
-              Update the details for this site.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...editForm}>
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                editForm.handleSubmit((values) => handleEditSubmit(values, e))();
-              }} 
-              className="space-y-4"
-            >
-              <FormField
-                control={editForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={editForm.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select site category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {siteCategories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <FormLabel>Connections ({editConnectionsField.fields.length}/3)</FormLabel>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => addConnection(editConnectionsField)}
-                    disabled={editConnectionsField.fields.length >= 3}
-                  >
-                    <PlusCircle className="h-4 w-4 mr-1" />
-                    Add
-                  </Button>
-                </div>
-                
-                {editConnectionsField.fields.map((field, index) => (
-                  <div key={field.id} className="flex flex-col gap-2 mb-3 p-2 border rounded-md">
-                    <div className="flex items-end gap-2">
-                      <FormField
-                        control={editForm.control}
-                        name={`connections.${index}.type`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormLabel className="text-xs">Type</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select connection type" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {connectionTypes.map((type) => (
-                                  <SelectItem key={type} value={type}>
-                                    {type}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={editForm.control}
-                        name={`connections.${index}.bandwidth`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormLabel className="text-xs">Bandwidth</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select bandwidth" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {bandwidthOptions.map((bandwidth) => (
-                                  <SelectItem key={bandwidth} value={bandwidth}>
-                                    {bandwidth}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => removeConnection(editConnectionsField, index)}
-                        disabled={editConnectionsField.fields.length <= 1}
-                        className="h-8 w-8 p-0 mt-1"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <FormField
-                      control={editForm.control}
-                      name={`connections.${index}.provider`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel className="text-xs">Provider</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select provider (optional)" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="none">None</SelectItem>
-                              {providerOptions.map((provider) => (
-                                <SelectItem key={provider} value={provider}>
-                                  {provider}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                ))}
-                {editForm.formState.errors.connections?.message && (
-                  <p className="text-sm font-medium text-destructive">{editForm.formState.errors.connections.message}</p>
-                )}
-              </div>
-
-              <DialogFooter>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsEditDialogOpen(false)}
-                  className="mr-2"
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">Save Changes</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      <EditSiteDialog 
+        site={siteToEdit}
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onUpdateSite={onUpdateSite}
+        siteCategories={siteCategories}
+      />
     </div>
   );
 };
