@@ -7,6 +7,7 @@ export interface Coordinates {
 export interface Connection {
   type: string;
   bandwidth: string;
+  provider?: string; // Adding optional provider field
 }
 
 export type SiteCategory = "Corporate" | "Data Center" | "Branch";

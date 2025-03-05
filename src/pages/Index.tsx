@@ -15,7 +15,7 @@ const Index = () => {
       location: "New York", 
       category: "Corporate",
       connections: [
-        { type: "DIA", bandwidth: "1 Gbps" }
+        { type: "DIA", bandwidth: "1 Gbps", provider: "Verizon" }
       ],
       coordinates: { x: 0.5, y: 0.3 } 
     },
@@ -25,7 +25,7 @@ const Index = () => {
       location: "San Francisco", 
       category: "Corporate",
       connections: [
-        { type: "MPLS", bandwidth: "500 Mbps" }
+        { type: "MPLS", bandwidth: "500 Mbps", provider: "AT&T" }
       ],
       coordinates: { x: 0.2, y: 0.6 } 
     },
@@ -35,8 +35,8 @@ const Index = () => {
       location: "Chicago", 
       category: "Data Center",
       connections: [
-        { type: "Direct Connect", bandwidth: "10 Gbps" },
-        { type: "MPLS", bandwidth: "1 Gbps" }
+        { type: "Direct Connect", bandwidth: "10 Gbps", provider: "Zayo" },
+        { type: "MPLS", bandwidth: "1 Gbps", provider: "Lumen" }
       ],
       coordinates: { x: 0.8, y: 0.5 } 
     },
@@ -46,8 +46,8 @@ const Index = () => {
       location: "Miami", 
       category: "Branch",
       connections: [
-        { type: "Broadband", bandwidth: "100 Mbps" },
-        { type: "LTE", bandwidth: "50 Mbps" }
+        { type: "Broadband", bandwidth: "100 Mbps", provider: "Comcast" },
+        { type: "LTE", bandwidth: "50 Mbps", provider: "Spectrum" }
       ],
       coordinates: { x: 0.6, y: 0.7 } 
     },
@@ -60,12 +60,12 @@ const Index = () => {
   // Force a re-render of components when the layout changes
   const [, forceUpdate] = useState({});
   useEffect(() => {
-    // Small delay to allow animation to complete
-    const timer = setTimeout(() => {
-      forceUpdate({});
-    }, 300);
+    // Series of updates to catch transitions
+    const timers = [100, 300, 500, 700].map(delay => 
+      setTimeout(() => forceUpdate({}), delay)
+    );
     
-    return () => clearTimeout(timer);
+    return () => timers.forEach(clearTimeout);
   }, [showSiteList]);
 
   const addSite = (site: Site) => {

@@ -22,11 +22,13 @@ const NetworkTopology = ({
   const [sitePositions, setSitePositions] = useState<Record<string, {x: number, y: number}>>({});
 
   useEffect(() => {
+    if (dimensions.width === 0 || dimensions.height === 0) return;
+    
     const positions: Record<string, {x: number, y: number}> = {};
     sites.forEach(site => {
       positions[site.id] = {
-        x: site.coordinates.x * (dimensions.width || 1),
-        y: site.coordinates.y * (dimensions.height || 1)
+        x: site.coordinates.x * dimensions.width,
+        y: site.coordinates.y * dimensions.height
       };
     });
     setSitePositions(positions);
@@ -35,32 +37,52 @@ const NetworkTopology = ({
   useEffect(() => {
     const updateDimensions = () => {
       if (canvasRef.current) {
-        setDimensions({
-          width: canvasRef.current.offsetWidth,
-          height: canvasRef.current.offsetHeight,
-        });
+        const width = canvasRef.current.offsetWidth;
+        const height = canvasRef.current.offsetHeight;
+        
+        if (width > 0 && height > 0) {
+          setDimensions({
+            width,
+            height,
+          });
+        }
       }
     };
 
     updateDimensions();
+    
     window.addEventListener("resize", updateDimensions);
+    
+    const intervalId = setInterval(updateDimensions, 100);
     
     return () => {
       window.removeEventListener("resize", updateDimensions);
+      clearInterval(intervalId);
     };
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const checkDimensions = () => {
       if (canvasRef.current) {
-        setDimensions({
-          width: canvasRef.current.offsetWidth,
-          height: canvasRef.current.offsetHeight,
-        });
+        const width = canvasRef.current.offsetWidth;
+        const height = canvasRef.current.offsetHeight;
+        
+        if (width > 0 && height > 0 && (width !== dimensions.width || height !== dimensions.height)) {
+          setDimensions({
+            width,
+            height,
+          });
+        }
       }
-    }, 300); // Small delay to allow animation to complete
+    };
     
-    return () => clearTimeout(timer);
+    const timeouts = [50, 100, 250, 500, 1000].map(delay => 
+      setTimeout(checkDimensions, delay)
+    );
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
   }, [canvasRef.current?.offsetWidth, canvasRef.current?.offsetHeight]);
 
   const getConnectionColor = (connectionType: string) => {
@@ -92,6 +114,37 @@ const NetworkTopology = ({
         return "#6B7280"; // Gray
     }
   };
+
+  const getProviderColor = (provider?: string) => {
+    if (!provider) return "#6b7280"; // Gray default
+    
+    switch (provider) {
+      case "AT&T":
+        return "#0057b8"; // AT&T Blue
+      case "Verizon":
+        return "#cd040b"; // Verizon Red
+      case "Lumen":
+        return "#00c0f3"; // Lumen Blue
+      case "Comcast":
+        return "#ff0000"; // Comcast Red
+      case "Spectrum":
+        return "#0072ce"; // Spectrum Blue
+      case "Zayo":
+        return "#ffda00"; // Zayo Yellow
+      default:
+        return "#6b7280"; // Gray
+    }
+  };
+
+  const getDistanceFactors = () => {
+    const siteFactor = Math.max(0.3, 1 - (sites.length / 50));
+    return {
+      internetDistance: dimensions.height * 0.25 * siteFactor,
+      mplsDistance: dimensions.height * 0.25 * siteFactor
+    };
+  };
+
+  const { internetDistance, mplsDistance } = getDistanceFactors();
 
   const handleDragStart = (siteId: string) => {
     setIsDragging(siteId);
@@ -126,16 +179,6 @@ const NetworkTopology = ({
       onUpdateSiteCoordinates(siteId, { x: relativeX, y: relativeY });
     }
   };
-
-  const getDistanceFactors = () => {
-    const siteFactor = Math.max(0.3, 1 - (sites.length / 50));
-    return {
-      internetDistance: dimensions.height * 0.25 * siteFactor,
-      mplsDistance: dimensions.height * 0.25 * siteFactor
-    };
-  };
-
-  const { internetDistance, mplsDistance } = getDistanceFactors();
 
   return (
     <div
@@ -225,7 +268,7 @@ const NetworkTopology = ({
                 transition={{ duration: 1, delay: 0.2 }}
                 d={`M ${sitePos.x} ${sitePos.y} Q ${controlX} ${controlY}, ${targetX} ${targetY}`}
                 fill="none"
-                stroke={getConnectionColor(connection.type)}
+                stroke={connection.provider ? getProviderColor(connection.provider) : getConnectionColor(connection.type)}
                 strokeWidth={selectedSite?.id === site.id || hoveredSite === site.id ? 3 : 2}
                 strokeDasharray={isMPLS ? "5,5" : undefined}
                 strokeOpacity={selectedSite && selectedSite.id !== site.id ? 0.3 : 1}
@@ -292,7 +335,10 @@ const NetworkTopology = ({
               {site.connections.length > 0 && (
                 <div
                   className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: getConnectionColor(site.connections[0].type) }}
+                  style={{ backgroundColor: site.connections[0].provider 
+                    ? getProviderColor(site.connections[0].provider) 
+                    : getConnectionColor(site.connections[0].type) 
+                  }}
                 />
               )}
             </div>
@@ -326,9 +372,15 @@ const NetworkTopology = ({
                       <div key={idx} className="flex items-center gap-1">
                         <span 
                           className="w-2 h-2 rounded-full" 
-                          style={{ backgroundColor: getConnectionColor(connection.type) }}
+                          style={{ backgroundColor: connection.provider 
+                            ? getProviderColor(connection.provider) 
+                            : getConnectionColor(connection.type)
+                          }}
                         />
-                        <span>{connection.type}: {connection.bandwidth}</span>
+                        <span>
+                          {connection.type}: {connection.bandwidth}
+                          {connection.provider && <span className="ml-1 text-gray-500">({connection.provider})</span>}
+                        </span>
                       </div>
                     ))}
                   </motion.div>
