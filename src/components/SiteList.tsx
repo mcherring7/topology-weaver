@@ -516,7 +516,7 @@ const SiteList = ({
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="">None</SelectItem>
+                                <SelectItem value="none">None</SelectItem>
                                 {providerOptions.map((provider) => (
                                   <SelectItem key={provider} value={provider}>
                                     {provider}
@@ -812,7 +812,7 @@ const SiteList = ({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">None</SelectItem>
+                              <SelectItem value="none">None</SelectItem>
                               {providerOptions.map((provider) => (
                                 <SelectItem key={provider} value={provider}>
                                   {provider}
