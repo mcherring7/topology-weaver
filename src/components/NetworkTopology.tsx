@@ -100,8 +100,9 @@ const NetworkTopology = ({
   const handleDrag = (event: any, info: any, siteId: string) => {
     if (canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
-      const newX = info.point.x - canvasRect.left;
-      const newY = info.point.y - canvasRect.top;
+      
+      const newX = Math.max(0, Math.min(canvasRect.width, info.point.x - canvasRect.left));
+      const newY = Math.max(0, Math.min(canvasRect.height, info.point.y - canvasRect.top));
       
       setSitePositions(prev => ({
         ...prev,
@@ -115,8 +116,9 @@ const NetworkTopology = ({
     
     if (canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
-      const newX = info.point.x - canvasRect.left;
-      const newY = info.point.y - canvasRect.top;
+      
+      const newX = Math.max(0, Math.min(canvasRect.width, info.point.x - canvasRect.left));
+      const newY = Math.max(0, Math.min(canvasRect.height, info.point.y - canvasRect.top));
       
       const relativeX = Math.max(0, Math.min(1, newX / dimensions.width));
       const relativeY = Math.max(0, Math.min(1, newY / dimensions.height));
@@ -262,6 +264,7 @@ const NetworkTopology = ({
             }}
             drag
             dragMomentum={false}
+            dragElastic={0}
             onDragStart={() => handleDragStart(site.id)}
             onDrag={(event, info) => handleDrag(event, info, site.id)}
             onDragEnd={(event, info) => handleDragEnd(event, info, site.id)}
@@ -305,7 +308,7 @@ const NetworkTopology = ({
                 {site.name}
               </div>
               <AnimatePresence>
-                {(isSelected || isHovered) && (
+                {(isSelected || isHovered || isDraggingThis) && (
                   <motion.div
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}

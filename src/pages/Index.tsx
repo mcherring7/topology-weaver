@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import NetworkTopology from "@/components/NetworkTopology";
 import SiteList from "@/components/SiteList";
-import { Site } from "@/types/site";
+import { Site, SiteCategory } from "@/types/site";
 import { AnimatePresence, motion } from "framer-motion";
 
 const Index = () => {
@@ -55,6 +55,7 @@ const Index = () => {
 
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [showSiteList, setShowSiteList] = useState(true);
+  const [categoryFilters, setCategoryFilters] = useState<SiteCategory[]>(["Corporate", "Data Center", "Branch"]);
 
   // Force a re-render of components when the layout changes
   const [, forceUpdate] = useState({});
@@ -101,6 +102,9 @@ const Index = () => {
     setShowSiteList(!showSiteList);
   };
 
+  // Filter sites based on selected categories for network topology
+  const filteredSites = sites.filter(site => categoryFilters.includes(site.category));
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-100 py-4 px-6 flex justify-between items-center">
@@ -141,6 +145,8 @@ const Index = () => {
                 onRemoveSite={removeSite}
                 selectedSite={selectedSite}
                 onSelectSite={setSelectedSite}
+                categoryFilters={categoryFilters}
+                onCategoryFiltersChange={setCategoryFilters}
               />
             </motion.div>
           )}
@@ -159,7 +165,7 @@ const Index = () => {
             </CardHeader>
             <CardContent className="p-0 h-[calc(100%-5rem)]">
               <NetworkTopology 
-                sites={sites} 
+                sites={filteredSites} 
                 selectedSite={selectedSite} 
                 onSelectSite={setSelectedSite}
                 onUpdateSiteCoordinates={updateSiteCoordinates}

@@ -55,6 +55,8 @@ interface SiteListProps {
   onRemoveSite: (id: string) => void;
   selectedSite: Site | null;
   onSelectSite: (site: Site | null) => void;
+  categoryFilters: SiteCategory[];
+  onCategoryFiltersChange: (categories: SiteCategory[]) => void;
 }
 
 const connectionTypes = ["DIA", "MPLS", "Direct Connect", "Broadband", "LTE"];
@@ -86,11 +88,12 @@ const SiteList = ({
   onRemoveSite,
   selectedSite,
   onSelectSite,
+  categoryFilters,
+  onCategoryFiltersChange
 }: SiteListProps) => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [siteToEdit, setSiteToEdit] = useState<Site | null>(null);
-  const [categoryFilters, setCategoryFilters] = useState<SiteCategory[]>(siteCategories);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const addForm = useForm<SiteFormValues>({
@@ -238,17 +241,15 @@ const SiteList = ({
   };
 
   const handleCategoryFilterChange = (category: SiteCategory) => {
-    setCategoryFilters((prev) => {
-      if (prev.includes(category)) {
-        return prev.filter(c => c !== category);
-      } else {
-        return [...prev, category];
-      }
-    });
+    onCategoryFiltersChange(
+      categoryFilters.includes(category)
+        ? categoryFilters.filter(c => c !== category)
+        : [...categoryFilters, category]
+    );
   };
 
   const resetFilters = () => {
-    setCategoryFilters(siteCategories);
+    onCategoryFiltersChange(siteCategories);
   };
 
   const filteredSites = sites.filter(site => categoryFilters.includes(site.category));
