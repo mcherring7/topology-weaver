@@ -159,7 +159,11 @@ const SiteList = ({
     });
   };
 
-  const handleEditSubmit = (values: SiteFormValues) => {
+  const handleEditSubmit = (values: SiteFormValues, e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+    
     if (siteToEdit) {
       const updatedSite: Site = {
         ...siteToEdit,
@@ -183,7 +187,6 @@ const SiteList = ({
   const openEditDialog = (site: Site) => {
     setSiteToEdit(site);
     
-    // Ensure the connections have provider field (for backward compatibility)
     const connections = site.connections.map(conn => ({
       ...conn,
       provider: conn.provider || undefined
@@ -286,7 +289,6 @@ const SiteList = ({
 
   const filteredSites = sites.filter(site => categoryFilters.includes(site.category));
 
-  // Render dialog forms
   return (
     <div className="p-4 flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
@@ -649,7 +651,13 @@ const SiteList = ({
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                editForm.handleSubmit((values) => handleEditSubmit(values, e))();
+              }} 
+              className="space-y-4"
+            >
               <FormField
                 control={editForm.control}
                 name="name"
