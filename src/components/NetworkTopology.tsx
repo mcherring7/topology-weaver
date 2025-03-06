@@ -1,6 +1,8 @@
+
 import { useRef, useEffect, useState } from "react";
 import { Site } from "@/types/site";
 import { motion, AnimatePresence } from "framer-motion";
+import { getCategoryColor, getConnectionColor, getProviderColor } from "@/utils/siteColors";
 
 interface NetworkTopologyProps {
   sites: Site[];
@@ -21,6 +23,7 @@ const NetworkTopology = ({
   const [isDragging, setIsDragging] = useState<string | null>(null);
   const [sitePositions, setSitePositions] = useState<Record<string, {x: number, y: number}>>({});
 
+  // Update positions when sites or dimensions change
   useEffect(() => {
     if (dimensions.width === 0 || dimensions.height === 0) return;
     
@@ -34,13 +37,15 @@ const NetworkTopology = ({
     setSitePositions(positions);
   }, [sites, dimensions]);
 
+  // Update canvas dimensions
   useEffect(() => {
     const updateDimensions = () => {
       if (canvasRef.current) {
-        const width = canvasRef.current.offsetWidth;
-        const height = canvasRef.current.offsetHeight;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
         
-        if (width > 0 && height > 0) {
+        if (width > 0 && height > 0 && (width !== dimensions.width || height !== dimensions.height)) {
           setDimensions({
             width,
             height,
@@ -53,88 +58,16 @@ const NetworkTopology = ({
     
     window.addEventListener("resize", updateDimensions);
     
-    const intervalId = setInterval(updateDimensions, 100);
-    
-    return () => {
-      window.removeEventListener("resize", updateDimensions);
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  useEffect(() => {
-    const checkDimensions = () => {
-      if (canvasRef.current) {
-        const width = canvasRef.current.offsetWidth;
-        const height = canvasRef.current.offsetHeight;
-        
-        if (width > 0 && height > 0 && (width !== dimensions.width || height !== dimensions.height)) {
-          setDimensions({
-            width,
-            height,
-          });
-        }
-      }
-    };
-    
-    const timeouts = [50, 100, 250, 500, 1000].map(delay => 
-      setTimeout(checkDimensions, delay)
+    // Check dimensions multiple times to ensure we have the correct values
+    const timeoutIds = [100, 200, 300, 500, 1000].map(delay => 
+      setTimeout(updateDimensions, delay)
     );
     
     return () => {
-      timeouts.forEach(clearTimeout);
+      window.removeEventListener("resize", updateDimensions);
+      timeoutIds.forEach(id => clearTimeout(id));
     };
-  }, [canvasRef.current?.offsetWidth, canvasRef.current?.offsetHeight]);
-
-  const getConnectionColor = (connectionType: string) => {
-    switch (connectionType) {
-      case "DIA":
-        return "#10b981"; // Green
-      case "MPLS":
-        return "#3b82f6"; // Blue
-      case "Direct Connect":
-        return "#8b5cf6"; // Purple
-      case "Broadband":
-        return "#f59e0b"; // Yellow
-      case "LTE":
-        return "#ef4444"; // Red
-      default:
-        return "#6b7280"; // Gray
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "Corporate":
-        return "#8B5CF6"; // Purple
-      case "Data Center":
-        return "#10B981"; // Green
-      case "Branch":
-        return "#3B82F6"; // Blue
-      default:
-        return "#6B7280"; // Gray
-    }
-  };
-
-  const getProviderColor = (provider?: string) => {
-    if (!provider) return "#6b7280"; // Gray default
-    
-    switch (provider) {
-      case "AT&T":
-        return "#0057b8"; // AT&T Blue
-      case "Verizon":
-        return "#cd040b"; // Verizon Red
-      case "Lumen":
-        return "#00c0f3"; // Lumen Blue
-      case "Comcast":
-        return "#ff0000"; // Comcast Red
-      case "Spectrum":
-        return "#0072ce"; // Spectrum Blue
-      case "Zayo":
-        return "#ffda00"; // Zayo Yellow
-      default:
-        return "#6b7280"; // Gray
-    }
-  };
+  }, []);
 
   const getDistanceFactors = () => {
     const siteFactor = Math.max(0.3, 1 - (sites.length / 50));
@@ -154,8 +87,8 @@ const NetworkTopology = ({
     if (canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
       
-      const newX = Math.max(0, Math.min(canvasRect.width, info.point.x - canvasRect.left));
-      const newY = Math.max(0, Math.min(canvasRect.height, info.point.y - canvasRect.top));
+      const newX = Math.max(30, Math.min(canvasRect.width - 30, info.point.x - canvasRect.left));
+      const newY = Math.max(30, Math.min(canvasRect.height - 30, info.point.y - canvasRect.top));
       
       setSitePositions(prev => ({
         ...prev,
@@ -170,14 +103,77 @@ const NetworkTopology = ({
     if (canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
       
-      const newX = Math.max(0, Math.min(canvasRect.width, info.point.x - canvasRect.left));
-      const newY = Math.max(0, Math.min(canvasRect.height, info.point.y - canvasRect.top));
+      const newX = Math.max(30, Math.min(canvasRect.width - 30, info.point.x - canvasRect.left));
+      const newY = Math.max(30, Math.min(canvasRect.height - 30, info.point.y - canvasRect.top));
       
-      const relativeX = Math.max(0, Math.min(1, newX / dimensions.width));
-      const relativeY = Math.max(0, Math.min(1, newY / dimensions.height));
+      const relativeX = newX / dimensions.width;
+      const relativeY = newY / dimensions.height;
       
-      onUpdateSiteCoordinates(siteId, { x: relativeX, y: relativeY });
+      onUpdateSiteCoordinates(siteId, { 
+        x: Math.max(0.05, Math.min(0.95, relativeX)),
+        y: Math.max(0.05, Math.min(0.95, relativeY))
+      });
     }
+  };
+
+  // Calculate connection paths between sites and internet/MPLS clouds
+  const calculateConnectionPaths = () => {
+    const paths: JSX.Element[] = [];
+    
+    sites.forEach((site) => {
+      const sitePos = sitePositions[site.id] || {
+        x: site.coordinates.x * dimensions.width,
+        y: site.coordinates.y * dimensions.height
+      };
+      
+      if (!sitePos) return;
+      
+      site.connections.forEach((connection, idx) => {
+        const isMPLS = connection.type === "MPLS";
+        const targetX = dimensions.width / 2;
+        const targetY = isMPLS ? dimensions.height * (2/3) : dimensions.height / 3;
+        
+        // Adjust offset angle based on number of connections
+        const offsetAngle = (idx - (site.connections.length - 1) / 2) * 0.15;
+        const controlPointOffset = 30 + (idx * 10);
+        
+        // Calculate midpoint
+        const midX = (sitePos.x + targetX) / 2;
+        const midY = (sitePos.y + targetY) / 2;
+        
+        // Calculate direction vector
+        const dx = targetX - sitePos.x;
+        const dy = targetY - sitePos.y;
+        
+        // Calculate normal angle (perpendicular to the direction)
+        const normalAngle = Math.atan2(dy, dx) + Math.PI/2;
+        
+        // Calculate control point with offset
+        const controlX = midX + Math.cos(normalAngle + offsetAngle) * controlPointOffset;
+        const controlY = midY + Math.sin(normalAngle + offsetAngle) * controlPointOffset;
+        
+        const connectionColor = connection.provider 
+          ? getProviderColor(connection.provider) 
+          : getConnectionColor(connection.type);
+          
+        paths.push(
+          <motion.path
+            key={`${site.id}-connection-${idx}`}
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 1, delay: 0.2 }}
+            d={`M ${sitePos.x} ${sitePos.y} Q ${controlX} ${controlY}, ${targetX} ${targetY}`}
+            fill="none"
+            stroke={connectionColor}
+            strokeWidth={selectedSite?.id === site.id || hoveredSite === site.id ? 3 : 2}
+            strokeDasharray={isMPLS ? "5,5" : undefined}
+            strokeOpacity={selectedSite && selectedSite.id !== site.id ? 0.3 : 1}
+          />
+        );
+      });
+    });
+    
+    return paths;
   };
 
   return (
@@ -185,6 +181,7 @@ const NetworkTopology = ({
       ref={canvasRef}
       className="relative w-full h-full bg-gray-50 overflow-hidden"
     >
+      {/* Internet Cloud */}
       <div
         className="absolute top-1/3 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
         style={{
@@ -211,6 +208,7 @@ const NetworkTopology = ({
         </motion.div>
       </div>
 
+      {/* MPLS Cloud */}
       <div
         className="absolute bottom-1/3 left-1/2 transform -translate-x-1/2 translate-y-1/2"
         style={{
@@ -237,47 +235,12 @@ const NetworkTopology = ({
         </motion.div>
       </div>
 
+      {/* Connection lines */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none">
-        {sites.map((site) => {
-          const sitePos = sitePositions[site.id] || {
-            x: site.coordinates.x * dimensions.width,
-            y: site.coordinates.y * dimensions.height
-          };
-          
-          return site.connections.map((connection, idx) => {
-            const isMPLS = connection.type === "MPLS";
-            const targetX = dimensions.width / 2;
-            const targetY = isMPLS ? dimensions.height * (2/3) : dimensions.height / 3;
-            
-            const offsetAngle = (idx - (site.connections.length - 1) / 2) * 0.15;
-            const controlPointOffset = 30 + (idx * 10);
-            
-            const midX = (sitePos.x + targetX) / 2;
-            const midY = (sitePos.y + targetY) / 2;
-            const dx = targetX - sitePos.x;
-            const dy = targetY - sitePos.y;
-            const normalAngle = Math.atan2(dy, dx) + Math.PI/2;
-            const controlX = midX + Math.cos(normalAngle + offsetAngle) * controlPointOffset;
-            const controlY = midY + Math.sin(normalAngle + offsetAngle) * controlPointOffset;
-
-            return (
-              <motion.path
-                key={`${site.id}-connection-${idx}`}
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 1, delay: 0.2 }}
-                d={`M ${sitePos.x} ${sitePos.y} Q ${controlX} ${controlY}, ${targetX} ${targetY}`}
-                fill="none"
-                stroke={connection.provider ? getProviderColor(connection.provider) : getConnectionColor(connection.type)}
-                strokeWidth={selectedSite?.id === site.id || hoveredSite === site.id ? 3 : 2}
-                strokeDasharray={isMPLS ? "5,5" : undefined}
-                strokeOpacity={selectedSite && selectedSite.id !== site.id ? 0.3 : 1}
-              />
-            );
-          });
-        })}
+        {calculateConnectionPaths()}
       </svg>
 
+      {/* Site nodes */}
       {sites.map((site) => {
         const position = sitePositions[site.id] || { 
           x: site.coordinates.x * dimensions.width, 
@@ -312,7 +275,13 @@ const NetworkTopology = ({
             onDrag={(event, info) => handleDrag(event, info, site.id)}
             onDragEnd={(event, info) => handleDragEnd(event, info, site.id)}
             whileDrag={{ scale: 1.1 }}
-            transition={{ type: "spring", damping: 20 }}
+            transition={{ 
+              type: "spring", 
+              damping: 20,
+              // Make x/y transitions smoother
+              x: { type: "spring", stiffness: 300, damping: 30 },
+              y: { type: "spring", stiffness: 300, damping: 30 }
+            }}
             className={`absolute cursor-pointer ${isDraggingThis ? 'z-50' : 'z-10'}`}
             style={{ 
               touchAction: "none",
