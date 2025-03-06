@@ -29,6 +29,7 @@ const NetworkTopology = ({
     
     const positions: Record<string, {x: number, y: number}> = {};
     sites.forEach(site => {
+      // Calculate position based on relative coordinates
       positions[site.id] = {
         x: site.coordinates.x * dimensions.width,
         y: site.coordinates.y * dimensions.height
@@ -37,13 +38,13 @@ const NetworkTopology = ({
     setSitePositions(positions);
   }, [sites, dimensions]);
 
-  // Update canvas dimensions
+  // Update canvas dimensions with improved detection
   useEffect(() => {
     const updateDimensions = () => {
       if (canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
-        const width = rect.width;
-        const height = rect.height;
+        const width = Math.floor(rect.width);
+        const height = Math.floor(rect.height);
         
         if (width > 0 && height > 0 && (width !== dimensions.width || height !== dimensions.height)) {
           setDimensions({
@@ -59,25 +60,26 @@ const NetworkTopology = ({
     window.addEventListener("resize", updateDimensions);
     
     // Check dimensions multiple times to ensure we have the correct values
-    const timeoutIds = [100, 200, 300, 500, 1000].map(delay => 
+    // with more frequent checks at the beginning
+    const timeoutIds = [50, 100, 200, 300, 500, 800, 1200].map(delay => 
       setTimeout(updateDimensions, delay)
     );
     
+    // Also recheck when visibility state changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(updateDimensions, 100);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     return () => {
       window.removeEventListener("resize", updateDimensions);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       timeoutIds.forEach(id => clearTimeout(id));
     };
   }, []);
-
-  const getDistanceFactors = () => {
-    const siteFactor = Math.max(0.3, 1 - (sites.length / 50));
-    return {
-      internetDistance: dimensions.height * 0.25 * siteFactor,
-      mplsDistance: dimensions.height * 0.25 * siteFactor
-    };
-  };
-
-  const { internetDistance, mplsDistance } = getDistanceFactors();
 
   const handleDragStart = (siteId: string) => {
     setIsDragging(siteId);
@@ -87,8 +89,10 @@ const NetworkTopology = ({
     if (canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
       
-      const newX = Math.max(30, Math.min(canvasRect.width - 30, info.point.x - canvasRect.left));
-      const newY = Math.max(30, Math.min(canvasRect.height - 30, info.point.y - canvasRect.top));
+      // Add padding to prevent sites from being too close to the edge
+      const padding = 40;
+      const newX = Math.max(padding, Math.min(canvasRect.width - padding, info.point.x - canvasRect.left));
+      const newY = Math.max(padding, Math.min(canvasRect.height - padding, info.point.y - canvasRect.top));
       
       setSitePositions(prev => ({
         ...prev,
@@ -103,9 +107,12 @@ const NetworkTopology = ({
     if (canvasRef.current) {
       const canvasRect = canvasRef.current.getBoundingClientRect();
       
-      const newX = Math.max(30, Math.min(canvasRect.width - 30, info.point.x - canvasRect.left));
-      const newY = Math.max(30, Math.min(canvasRect.height - 30, info.point.y - canvasRect.top));
+      // Add padding to prevent sites from being too close to the edge
+      const padding = 40;
+      const newX = Math.max(padding, Math.min(canvasRect.width - padding, info.point.x - canvasRect.left));
+      const newY = Math.max(padding, Math.min(canvasRect.height - padding, info.point.y - canvasRect.top));
       
+      // Convert to relative coordinates (with padding consideration)
       const relativeX = newX / dimensions.width;
       const relativeY = newY / dimensions.height;
       
@@ -121,29 +128,36 @@ const NetworkTopology = ({
     const paths: JSX.Element[] = [];
     
     sites.forEach((site) => {
-      const sitePos = sitePositions[site.id] || {
-        x: site.coordinates.x * dimensions.width,
-        y: site.coordinates.y * dimensions.height
-      };
+      const sitePos = sitePositions[site.id];
       
       if (!sitePos) return;
       
+      // Internet and MPLS cloud centers
+      const internetCenter = {
+        x: dimensions.width / 2,
+        y: dimensions.height / 3
+      };
+      
+      const mplsCenter = {
+        x: dimensions.width / 2,
+        y: dimensions.height * (2/3)
+      };
+      
       site.connections.forEach((connection, idx) => {
         const isMPLS = connection.type === "MPLS";
-        const targetX = dimensions.width / 2;
-        const targetY = isMPLS ? dimensions.height * (2/3) : dimensions.height / 3;
+        const targetCenter = isMPLS ? mplsCenter : internetCenter;
         
         // Adjust offset angle based on number of connections
         const offsetAngle = (idx - (site.connections.length - 1) / 2) * 0.15;
         const controlPointOffset = 30 + (idx * 10);
         
         // Calculate midpoint
-        const midX = (sitePos.x + targetX) / 2;
-        const midY = (sitePos.y + targetY) / 2;
+        const midX = (sitePos.x + targetCenter.x) / 2;
+        const midY = (sitePos.y + targetCenter.y) / 2;
         
         // Calculate direction vector
-        const dx = targetX - sitePos.x;
-        const dy = targetY - sitePos.y;
+        const dx = targetCenter.x - sitePos.x;
+        const dy = targetCenter.y - sitePos.y;
         
         // Calculate normal angle (perpendicular to the direction)
         const normalAngle = Math.atan2(dy, dx) + Math.PI/2;
@@ -162,7 +176,7 @@ const NetworkTopology = ({
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
             transition={{ duration: 1, delay: 0.2 }}
-            d={`M ${sitePos.x} ${sitePos.y} Q ${controlX} ${controlY}, ${targetX} ${targetY}`}
+            d={`M ${sitePos.x} ${sitePos.y} Q ${controlX} ${controlY}, ${targetCenter.x} ${targetCenter.y}`}
             fill="none"
             stroke={connectionColor}
             strokeWidth={selectedSite?.id === site.id || hoveredSite === site.id ? 3 : 2}
@@ -277,10 +291,13 @@ const NetworkTopology = ({
             whileDrag={{ scale: 1.1 }}
             transition={{ 
               type: "spring", 
-              damping: 20,
-              // Make x/y transitions smoother
-              x: { type: "spring", stiffness: 300, damping: 30 },
-              y: { type: "spring", stiffness: 300, damping: 30 }
+              damping: 25,
+              stiffness: 300,
+              // Make x/y transitions smoother with specific settings
+              x: { type: "spring", stiffness: 350, damping: 30 },
+              y: { type: "spring", stiffness: 350, damping: 30 },
+              // Make the scale transition smoother
+              scale: { type: "spring", stiffness: 400, damping: 25 }
             }}
             className={`absolute cursor-pointer ${isDraggingThis ? 'z-50' : 'z-10'}`}
             style={{ 
