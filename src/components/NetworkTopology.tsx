@@ -159,12 +159,20 @@ const NetworkTopology = ({
         const dx = targetCenter.x - sitePos.x;
         const dy = targetCenter.y - sitePos.y;
         
-        // Calculate normal angle (perpendicular to the direction)
-        const normalAngle = Math.atan2(dy, dx) + Math.PI/2;
+        // Calculate angle between site and cloud
+        const angle = Math.atan2(dy, dx);
         
-        // Calculate control point with offset
-        const controlX = midX + Math.cos(normalAngle + offsetAngle) * controlPointOffset;
-        const controlY = midY + Math.sin(normalAngle + offsetAngle) * controlPointOffset;
+        // Calculate normal angle (perpendicular to the direction)
+        const normalAngle = angle + Math.PI/2;
+        
+        // Adjust control point offset based on which side of the cloud the site is on
+        // Sites on the left side need different curve direction
+        const isLeftSide = sitePos.x < targetCenter.x;
+        const adjustedOffsetAngle = isLeftSide ? offsetAngle : -offsetAngle;
+        
+        // Calculate control point with adjusted offset
+        const controlX = midX + Math.cos(normalAngle + adjustedOffsetAngle) * controlPointOffset;
+        const controlY = midY + Math.sin(normalAngle + adjustedOffsetAngle) * controlPointOffset;
         
         const connectionColor = connection.provider 
           ? getProviderColor(connection.provider) 
